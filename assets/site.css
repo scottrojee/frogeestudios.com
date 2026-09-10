@@ -91,6 +91,7 @@ ul.feat b { color: var(--ink); }
 /* prose (privacy) */
 .prose { max-width: 42em; }
 .prose h2 { margin-top: 1.6em; font-size: 1.4rem; }
+.prose h3 { margin-top: 1.3em; }
 .prose ul { padding-left: 1.2em; }
 .prose li { margin-bottom: .4em; }
 .updated { color: var(--ink-2); font-style: italic; }
