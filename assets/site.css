@@ -1,0 +1,102 @@
+/* Frogee Studios - one stylesheet for the whole site. Poster paper, ink, one red, one green. */
+:root {
+  --paper: #f3ead6;
+  --paper-2: #e9dcbf;
+  --ink: #1d1a16;
+  --ink-2: #4a443b;
+  --red: #d63a2a;
+  --red-2: #b42d1f;
+  --green: #3f8f4c;
+  --cream: #f6efe0;
+  --line: rgba(29, 26, 22, .18);
+  --max: 1080px;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 17px/1.55 Georgia, "Times New Roman", serif;
+}
+a { color: var(--red-2); }
+a:hover { color: var(--red); }
+img { max-width: 100%; height: auto; display: block; }
+h1, h2, h3, .display {
+  font-family: Anton, Impact, "Arial Narrow", sans-serif;
+  font-weight: 400;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  line-height: 1.05;
+  margin: 0 0 .4em;
+}
+h1 { font-size: clamp(2.6rem, 7vw, 5rem); }
+h2 { font-size: clamp(1.6rem, 3.6vw, 2.4rem); }
+h3 { font-size: 1.25rem; letter-spacing: .05em; }
+p { margin: 0 0 1em; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 22px; }
+
+/* header / nav */
+.top { border-bottom: 2px solid var(--ink); background: var(--paper); }
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 18px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--ink); }
+.brand .display { font-size: 1.35rem; letter-spacing: .08em; }
+.frog { width: 34px; height: 34px; flex: none; }
+nav a { color: var(--ink); text-decoration: none; margin-left: 20px; font-size: .95rem; letter-spacing: .02em; }
+nav a:hover { color: var(--red); }
+
+/* hero */
+.hero { position: relative; color: var(--cream); background: #1a1f33; overflow: hidden; }
+.hero img.bg { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; opacity: .9; }
+.hero .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(20,20,40,.15) 0%, rgba(20,20,40,.75) 100%); }
+.hero .wrap { position: relative; padding: clamp(70px, 12vw, 150px) 22px clamp(50px, 8vw, 100px); }
+.hero h1 { text-shadow: 0 3px 0 rgba(0,0,0,.35); }
+.hero .lede { font-size: clamp(1.1rem, 2.2vw, 1.4rem); max-width: 34em; margin-bottom: 1.6em; }
+.hero .logo { max-width: 620px; margin-bottom: 26px; }
+
+/* buttons */
+.btn {
+  display: inline-block; padding: 12px 22px; border: 2px solid var(--ink);
+  background: var(--red); color: var(--cream); text-decoration: none;
+  font-family: Anton, Impact, "Arial Narrow", sans-serif; text-transform: uppercase; letter-spacing: .08em; font-size: 1.05rem;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.btn:hover { background: var(--red-2); color: var(--cream); transform: translate(1px, 1px); box-shadow: 3px 3px 0 var(--ink); }
+.btn.ghost { background: transparent; color: inherit; border-color: currentColor; box-shadow: none; }
+.btn.ghost:hover { background: rgba(255,255,255,.08); transform: none; }
+.btn + .btn { margin-left: 10px; }
+.note { font-size: .9rem; color: var(--ink-2); }
+.hero .note { color: rgba(246,239,224,.8); }
+
+/* sections */
+section { padding: clamp(44px, 7vw, 84px) 0; }
+section + section { border-top: 1px solid var(--line); }
+.kicker { font-family: Anton, Impact, sans-serif; text-transform: uppercase; letter-spacing: .18em; color: var(--red); font-size: .85rem; margin-bottom: 10px; }
+.cols { display: grid; gap: 28px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+.card { border: 2px solid var(--ink); background: var(--cream); box-shadow: 6px 6px 0 var(--ink); }
+.card .body { padding: 20px 22px 24px; }
+.game { display: grid; gap: 34px; grid-template-columns: 1.15fr 1fr; align-items: center; }
+@media (max-width: 760px) { .game { grid-template-columns: 1fr; } }
+
+/* gallery */
+.gallery { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.gallery figure { margin: 0; border: 2px solid var(--ink); background: #000; }
+.gallery figcaption { font-size: .85rem; padding: 8px 10px; background: var(--cream); color: var(--ink-2); }
+
+/* lists */
+ul.feat { padding-left: 1.1em; }
+ul.feat li { margin-bottom: .45em; }
+ul.feat b { color: var(--ink); }
+
+/* prose (privacy) */
+.prose { max-width: 42em; }
+.prose h2 { margin-top: 1.6em; font-size: 1.4rem; }
+.prose ul { padding-left: 1.2em; }
+.prose li { margin-bottom: .4em; }
+.updated { color: var(--ink-2); font-style: italic; }
+pre.credits { font: .85rem/1.45 ui-monospace, Consolas, monospace; background: var(--cream); border: 1px solid var(--line); padding: 16px 18px; overflow-x: auto; white-space: pre-wrap; }
+
+/* footer */
+footer { border-top: 2px solid var(--ink); padding: 28px 0 40px; font-size: .9rem; color: var(--ink-2); }
+footer .wrap { display: flex; flex-wrap: wrap; gap: 8px 24px; justify-content: space-between; }
+footer a { color: var(--ink-2); }
