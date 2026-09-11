@@ -29,7 +29,7 @@ Remove Namecheap's parking records, then add:
 | A | `@` | `185.199.109.153` | Automatic |
 | A | `@` | `185.199.110.153` | Automatic |
 | A | `@` | `185.199.111.153` | Automatic |
-| CNAME | `www` | `<github-user>.github.io.` | Automatic |
+| CNAME | `www` | `scottrojee.github.io.` | Automatic |
 
 Email: Namecheap's free **Email Forwarding** (Domain > Redirect Email) can send `contact@frogeestudios.com`
 to a real inbox. Set it up before the store page goes live; the privacy policy names that address.
