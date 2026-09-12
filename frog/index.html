@@ -58,10 +58,11 @@
 <div id="hint" class="panel" hidden>
   <h1>Gutter Frog</h1>
   <p class="kb">Hold <b>Space</b> or the mouse button to charge. Aim with the mouse. Release to jump. Let go in the bright band for a clean launch.</p>
-  <p class="kb">In the air, click to grab a bird, wire, balloon or drone with your tongue. You get 3 grabs. Eat flies for more.</p>
   <p class="tp">Hold anywhere to charge, drag to aim, let go to jump. Let go in the bright band for a clean launch.</p>
-  <p class="tp">In the air, tap to grab the marked bird, wire, balloon or drone with your tongue. Tap near a different one to grab that instead. You get 3 grabs. Eat flies for more.</p>
-  <p>Land shallow to skip along. Water skips best. Bricks do not.</p>
+  <p>Then watch it go. The mark ahead shows the next landing: a tick skips on, amber slides to a stop, red ends the run.</p>
+  <p class="kb">To save a run, click to grab a bird, wire, balloon or drone with your tongue. You get 3 grabs. Eat flies for more.</p>
+  <p class="tp">To save a run, tap to grab the marked bird, wire, balloon or drone with your tongue. Tap near a different one to grab that instead. You get 3 grabs. Eat flies for more.</p>
+  <p class="sub">Water skips best. Bricks do not.</p>
   <p class="kb sub">R restarts. U opens upgrades between runs.</p>
   <p class="tp sub">Tap the screen after a run to go again.</p>
   <p class="foot"><a href="/">frogeestudios.com</a></p>
@@ -94,8 +95,9 @@
 // TUNING — every feel constant lives here. Units: px, seconds, degrees.
 // =====================================================================
 const T = {
-  GRAVITY: 1100,            // px/s^2
-  AIR_DRAG: 0.05,           // fraction of velocity lost per second in the air
+  GRAVITY: 600,             // px/s^2 (low: long, watchable arcs)
+  AIR_DRAG: 0.04,           // fraction of velocity lost per second in the air
+  ZOOM: 1.5,                // world magnification; the camera leads further ahead to compensate
   MAX_SPEED: 2300,          // px/s hard cap
   LAUNCH_MIN: 480,          // px/s at 0% charge
   LAUNCH_MAX: 1120,         // px/s at 100% charge (before legs upgrade and bonus)
@@ -120,15 +122,19 @@ const T = {
   SKIP_MIN_SPEED: 240,      // px/s needed to skip instead of stopping
   // impact angle (deg from horizontal) below which the frog skips; bounce = vertical kept; keep = horizontal kept
   SURF: {
-    water: { skip: 40, bounce: 0.60, keep: 0.92 },
-    dirt:  { skip: 26, bounce: 0.42, keep: 0.78 },
-    road:  { skip: 24, bounce: 0.48, keep: 0.84 },
-    roof:  { skip: 20, bounce: 0.45, keep: 0.80 },
+    water: { skip: 65, bounce: 0.70, keep: 0.97 },
+    dirt:  { skip: 48, bounce: 0.60, keep: 0.93 },
+    road:  { skip: 46, bounce: 0.62, keep: 0.94 },
+    roof:  { skip: 40, bounce: 0.55, keep: 0.90 },
   },
-  SLIDE_BAND: 16,           // deg above the skip angle that still counts as a rough landing (slide) on land
-  SLIDE_FRICTION: 900,      // px/s^2 while sliding on land
+  WATER_HOP: 120,           // px/s minimum upward speed after a water skip (keeps the frog hopping while fast)
+  LAND_SETTLE: 60,          // px/s: a land skip with less upward speed than this turns into a slide
+  SLIDE_BAND: 14,           // deg above the skip angle that still counts as a rough landing (slide) on land
+  SLIDE_KEEP: 0.75,         // horizontal speed kept on a rough landing
+  SLIDE_FRICTION: 400,      // px/s^2 while sliding on land (slow enough to leave a window for a save)
+  PREDICT_T: 5,             // s of flight the landing marker looks ahead
   WALL_MIN: 16,             // px step height that counts as a wall
-  LIP: 14,                  // px: frog centre this close under a wall top clambers over it instead of hitting it
+  LIP: 30,                  // px: frog centre this close under a wall top clambers over it instead of hitting it
   PX_PER_M: 10,             // score scale
   CAPS_PER_M: 1 / 8,        // currency per metre
   CAPS_PER_FLY: 2,
@@ -170,7 +176,7 @@ function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
   W = Math.max(200, innerWidth); H = Math.max(200, innerHeight);
   canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
-  base = clamp(Math.min(W / 900, H / 520), 0.5, 1);
+  base = clamp(Math.min(W / 900, H / 520), 0.5, 1) * T.ZOOM;
 }
 addEventListener('resize', resize);
 if (window.visualViewport) visualViewport.addEventListener('resize', resize);
@@ -235,7 +241,7 @@ function genSpan() {
   let type;
   if (last.type === 'roof') type = r < 0.3 ? 'roof' : r < 0.75 ? 'dirt' : 'road';
   else if (last.type === 'water') type = r < 0.55 ? 'dirt' : r < 0.85 ? 'road' : 'roof';
-  else type = r < 0.34 ? 'dirt' : r < 0.52 ? 'road' : r < 0.82 ? 'water' : 'roof';
+  else type = r < 0.36 ? 'dirt' : r < 0.56 ? 'road' : r < 0.91 ? 'water' : 'roof';
   if (x0 < 900 && type === 'roof') type = 'dirt'; // no bricks in front of the launch
   let len, y0, y1;
   const onGround = last.type === 'dirt' || last.type === 'road';
@@ -287,11 +293,15 @@ function surfaceY(x) {
 const isGround = x => { const t = spanAt(x).type; return t === 'dirt' || t === 'road'; };
 
 function placeAnchor() {
-  const x = world.nextAnchorX;
+  let x = world.nextAnchorX;
   const d = Math.max(0, (x - 600) / 1000);
+  // every building gets one anchor within reach in front of its wall: the wall is the classic save moment
+  const guard = world.spans.find(s => s.type === 'roof' && !s.guarded && s.x0 > x - 60 && s.x0 < x + 520);
+  if (guard) { guard.guarded = true; x = Math.max(x - 60, guard.x0 - 300 - rng() * 120); }
   const sy = surfaceY(x);
-  let y = GROUND_Y - (120 + rng() * 200 + Math.min(d, 6) * 18 * rng());
-  y = clamp(Math.min(y, sy - 110), 90, GROUND_Y - 110);
+  let y = GROUND_Y - (100 + rng() * 180 + Math.min(d, 6) * 18 * rng());
+  y = clamp(Math.min(y, sy - 100), 90, GROUND_Y - 100);
+  if (guard) y = Math.min(y, guard.y0 - 70);
   const r = rng();
   const droneBias = Math.min(d, 6) * 0.03;
   let type = r < 0.34 - droneBias ? 'bird' : r < 0.54 - droneBias ? 'balloon' : r < 0.76 - droneBias ? 'wire' : 'drone';
@@ -303,7 +313,7 @@ function placeAnchor() {
   if (type === 'balloon') { a.hue = rng() < 0.5 ? '#9a4a44' : rng() < 0.5 ? '#b0a15a' : '#5f7a8a'; a.drift = rng() * 2 - 1; }
   if (type === 'wire') { a.x0 = x - 100; a.x1 = x + 100; a.sag = 26 + rng() * 22; a.y = Math.max(a.y, 120); }
   world.anchors.push(a);
-  world.nextAnchorX += 330 + 50 * Math.min(d, 10) + rng() * 220 - 80;
+  world.nextAnchorX += 330 + 35 * Math.min(d, 10) + rng() * 220 - 80;
 }
 function wirePoint(a, t) {
   const sag = a.sag * 4 * t * (1 - t);
@@ -549,47 +559,82 @@ function stepFrog(dt) {
   }
 }
 
-function walls(px, py) {
-  const f = frog;
-  if (f.x === px) return;
-  const dir = f.x > px ? 1 : -1;
-  const i0 = spanIndexAt(Math.min(px, f.x)), i1 = spanIndexAt(Math.max(px, f.x));
+// A step between two spans on the way from px to x: null, { lip: topY } (clambers over) or { wall: x } (stops dead).
+function wallBetween(px, x, y, r) {
+  if (x === px) return null;
+  const dir = x > px ? 1 : -1;
+  const i0 = spanIndexAt(Math.min(px, x)), i1 = spanIndexAt(Math.max(px, x));
   const S = world.spans;
   for (let k = i0 + 1; k <= i1; k++) {
-    const bx = S[k].x0, yL = S[k - 1].y1, yR = S[k].y0;
+    const yL = S[k - 1].y1, yR = S[k].y0;
     const yFrom = dir > 0 ? yL : yR, yTo = dir > 0 ? yR : yL;
-    if (yTo < yFrom - T.WALL_MIN && f.y + f.r > yTo + 2) {
-      if (f.y < yTo + T.LIP) { f.y = yTo - f.r; toast('clambered', f.x, f.y - 30, '#b9b3a0'); fx('dust', f.x, yTo, 150); }
-      else {
-        f.x = bx - dir * (f.r + 1); f.vx = 0; f.vy = Math.max(f.vy, 0);
-        fx('dust', f.x, f.y, 300); endRun('wall'); return;
-      }
+    if (yTo < yFrom - T.WALL_MIN && y + r > yTo + 2) {
+      if (y < yTo + T.LIP) return { lip: yTo };
+      return { wall: S[k].x0 - dir * (r + 1) };
     }
   }
+  return null;
 }
+function walls(px, py) {
+  const f = frog;
+  const w = wallBetween(px, f.x, f.y, f.r);
+  if (!w) return;
+  if (w.lip !== undefined) { f.y = w.lip - f.r; toast('clambered', f.x, f.y - 30, '#b9b3a0'); fx('dust', f.x, w.lip, 150); return; }
+  f.x = w.wall; f.vx = 0; f.vy = Math.max(f.vy, 0);
+  fx('dust', f.x, f.y, 300); endRun('wall');
+}
+
+// What a landing on this surface with this velocity does: 'skip' | 'slide' | 'sink' | 'crumpled' | 'splat'
+function classifyImpact(type, vx, vy) {
+  const S = T.SURF[type], speed = Math.hypot(vx, vy);
+  const ang = Math.atan2(vy, Math.abs(vx)) / DEG; // 0 = grazing, 90 = straight down
+  if (ang < S.skip && speed > T.SKIP_MIN_SPEED) return 'skip';
+  if (type === 'water') return 'sink';
+  if (ang < S.skip + T.SLIDE_BAND || speed < T.SKIP_MIN_SPEED) return 'slide';
+  return ang > 62 ? 'splat' : 'crumpled';
+}
+const FATAL = { sink: 1, crumpled: 1, splat: 1, wall: 1 };
 
 function impact(sy) {
   const f = frog, sp = spanAt(f.x), S = T.SURF[sp.type];
   const speed = Math.hypot(f.vx, f.vy);
-  const ang = Math.atan2(f.vy, Math.abs(f.vx)) / DEG; // 0 = grazing, 90 = straight down
+  const kind = classifyImpact(sp.type, f.vx, f.vy);
   f.y = sy - f.r;
   const water = sp.type === 'water';
-  if (ang < S.skip && speed > T.SKIP_MIN_SPEED) {
+  if (kind === 'skip') {
     const vyIn = f.vy;
     f.vy = -f.vy * S.bounce; f.vx *= S.keep;
-    if (water && f.vy > -50) f.vy = -50;
-    if (!water && f.vy > -45) { f.vy = 0; f.state = 'sliding'; f.squashT = 0.2; return; }
+    if (water && f.vy > -T.WATER_HOP) f.vy = -T.WATER_HOP;
+    if (!water && f.vy > -T.LAND_SETTLE) { f.vy = 0; f.state = 'sliding'; f.squashT = 0.2; return; }
     f.skips++; if (water) f.waterSkips++;
     f.squashT = 0.16;
     if (vyIn > 90) { fx(water ? 'splash' : 'dust', f.x, sy, speed); if (water) ripple(f.x, sy); }
     return;
   }
-  if (water) { fx('splash', f.x, sy, speed); ripple(f.x, sy); ripple(f.x + 8, sy); endRun('sank'); return; }
-  if (ang < S.skip + T.SLIDE_BAND || speed < T.SKIP_MIN_SPEED) {
-    f.vy = 0; f.vx *= 0.6; f.state = 'sliding'; f.squashT = 0.25; fx('dust', f.x, sy, speed); return;
+  if (kind === 'sink') { fx('splash', f.x, sy, speed); ripple(f.x, sy); ripple(f.x + 8, sy); endRun('sank'); return; }
+  if (kind === 'slide') {
+    f.vy = 0; f.vx *= T.SLIDE_KEEP; f.state = 'sliding'; f.squashT = 0.25; fx('dust', f.x, sy, speed); return;
   }
   f.vx = 0; f.vy = 0; f.squashT = 0.6; fx('dust', f.x, sy, speed);
-  endRun(ang > 62 ? 'splat' : 'crumpled');
+  endRun(kind);
+}
+
+// Where the frog lands if nothing is done: drawn ahead of it so a save can be read in time.
+function predictImpact() {
+  const f = frog;
+  let x = f.x, y = f.y, vx = f.vx, vy = f.vy;
+  const dt = 1 / 60, n = Math.round(T.PREDICT_T / dt);
+  for (let i = 0; i < n; i++) {
+    vy += T.GRAVITY * dt;
+    const dr = 1 - T.AIR_DRAG * dt; vx *= dr; vy *= dr;
+    const px = x; x += vx * dt; y += vy * dt;
+    if (x > world.genX - 100 || x < world.spans[0].x0 + 50) return null;
+    const w = wallBetween(px, x, y, f.r);
+    if (w) { if (w.lip !== undefined) y = w.lip - f.r; else return { x: w.wall, y, kind: 'wall', t: i * dt }; }
+    const sy = surfaceY(x);
+    if (y + f.r > sy && vy > 0) return { x, y: sy, kind: classifyImpact(spanAt(x).type, vx, vy), t: i * dt };
+  }
+  return null;
 }
 
 function updateAnchors(dt) {
@@ -642,9 +687,9 @@ function updateCam(dt) {
     tx = f.x + viewW * 0.27; ty = GROUND_Y + groundPad(viewH) - viewH / 2;
   } else {
     const hgt = GROUND_Y - f.y;
-    tz = clamp(1 - Math.max(0, hgt - 220) / 800, 0.5, 1);
+    tz = clamp(1 - Math.max(0, hgt - 300) / 900, 0.55, 1);
     const viewW = W / (tz * base), viewH = H / (tz * base);
-    tx = f.x + clamp(f.vx * 0.5, 80, viewW * 0.44);
+    tx = f.x + clamp(f.vx * 0.55, 80, viewW * 0.4); // lead well ahead: the read is what is coming, not the frog
     ty = Math.min(f.y + viewH * 0.12, GROUND_Y + groundPad(viewH) - viewH / 2);
   }
   const k = 1 - Math.exp(-dt * 7), ky = 1 - Math.exp(-dt * 5), kz = 1 - Math.exp(-dt * 3);
@@ -792,6 +837,7 @@ function draw() {
   drawDecor(c, vx0, vx1);
   drawLaunchPad(c);
   drawWires(c, vx0, vx1);
+  drawLanding(c);
   drawTelegraphs(c);
   for (const a of world.anchors) if (a.x > vx0 - 200 && a.x < vx1 + 200) drawAnchor(c, a);
   for (const fl of world.flies) if (fl.x > vx0 - 40 && fl.x < vx1 + 40) drawFly(c, fl);
@@ -1014,6 +1060,37 @@ function drawFly(c, fl) {
   c.restore();
 }
 
+function drawLanding(c) {
+  const f = frog;
+  const k = 1 / Z(); // marker keeps a constant screen size
+  if (f.state === 'sliding' && f.vx !== 0) {
+    // sliding to a stop: the run ends unless something is grabbed
+    const pulse = 0.5 + 0.5 * Math.sin(tNow * 9);
+    c.strokeStyle = `rgba(214,58,42,${0.45 + 0.4 * pulse})`; c.lineWidth = 2 * k;
+    c.beginPath(); c.arc(f.x, f.y, (22 + 4 * pulse) * k, 0, 6.29); c.stroke();
+    return;
+  }
+  const L = f.land;
+  if (!L || f.state !== 'flying') return;
+  c.lineWidth = 2 * k; c.lineCap = 'round';
+  if (L.kind === 'skip') {
+    c.strokeStyle = 'rgba(236,230,214,.6)';
+    c.beginPath(); c.moveTo(L.x - 6 * k, L.y - 10 * k); c.lineTo(L.x, L.y - 3 * k); c.lineTo(L.x + 6 * k, L.y - 10 * k); c.stroke();
+  } else if (L.kind === 'slide') {
+    c.strokeStyle = 'rgba(232,180,80,.85)';
+    c.beginPath(); c.arc(L.x, L.y - 8 * k, 8 * k, 0, 6.29); c.stroke();
+    c.beginPath(); c.moveTo(L.x - 12 * k, L.y - 2 * k); c.lineTo(L.x + 12 * k, L.y - 2 * k); c.stroke();
+  } else {
+    const pulse = 0.5 + 0.5 * Math.sin(tNow * 9);
+    const y = L.kind === 'wall' ? L.y : L.y - 10 * k;
+    c.strokeStyle = `rgba(214,58,42,${0.6 + 0.4 * pulse})`;
+    c.beginPath(); c.arc(L.x, y, (10 + 2 * pulse) * k, 0, 6.29); c.stroke();
+    c.beginPath(); c.moveTo(L.x - 5 * k, y - 5 * k); c.lineTo(L.x + 5 * k, y + 5 * k); c.moveTo(L.x + 5 * k, y - 5 * k); c.lineTo(L.x - 5 * k, y + 5 * k); c.stroke();
+    c.fillStyle = `rgba(214,58,42,${0.7 + 0.3 * pulse})`; c.font = `bold ${16 * k}px ${DISPLAY}`; c.textAlign = 'center';
+    c.fillText('!', L.x, y - 16 * k);
+  }
+}
+
 function drawTelegraphs(c) {
   const f = frog;
   if (f.state !== 'flying' && f.state !== 'sliding') return;
@@ -1111,7 +1188,7 @@ function drawParticles(c) {
 
 function drawFrogHud(c) {
   const f = frog;
-  const k = 1 / Math.max(0.6, Z()); // frog-side HUD keeps a readable size when zoomed out
+  const k = clamp(1 / Z(), 0.5, 2); // frog-side HUD keeps a constant screen size
   if (f.state !== 'ended') {
     const n = T.MAX_CHARGES, x0 = f.x - (n - 1) * 4.5 * k, y = f.y - 27 * k;
     for (let i = 0; i < n; i++) {
@@ -1185,7 +1262,7 @@ function drawHud(c) {
     }
   }
   if (f.state === 'ready' && save.seen && !ui.shop) {
-    const txt = mouse.touch ? 'hold to charge · drag to aim · let go to jump · tap to grab' : 'hold to charge · release to jump · click to grab · U upgrades';
+    const txt = mouse.touch ? 'hold to charge · drag to aim · let go · tap to save it' : 'hold to charge · release to jump · click to save it · U upgrades';
     shadowText(c, txt, W / 2, H - 16, `${small ? 12 : 14}px ${BODY}`, 'rgba(236,230,214,.75)', 'center');
   }
 }
@@ -1208,6 +1285,7 @@ function frame(now) {
       mouse.wx = f.x + f.facing * 150; mouse.wy = f.y - 60;
     } else { const w = toWorld(mouse.sx, mouse.sy); mouse.wx = w.x; mouse.wy = w.y; }
     f.pick = (f.state === 'flying' || f.state === 'sliding') ? pickTarget() : null;
+    f.land = (f.state === 'flying' && !(f.tongue && f.tongue.phase === 'hold')) ? predictImpact() : null;
   }
   syncPanels();
   draw();
