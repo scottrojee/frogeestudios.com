@@ -8,6 +8,7 @@ Namecheap domain.
 | `index.html` | studio home |
 | `beam-them-back/index.html` | the game page (Steam's "website" link) |
 | `privacy/index.html` | the privacy policy (Steam's "privacy policy" link: `https://frogeestudios.com/privacy/`) |
+| `frog/index.html` | Gutter Frog, a one-file browser game (Canvas, no assets); tuning constants at the top of its script |
 | `assets/site.css` | the one stylesheet |
 | `assets/img/` | store art scaled for the web (source of truth: `Holdfast/Docs/store/`) |
 | `CNAME` | tells GitHub Pages the custom domain |
