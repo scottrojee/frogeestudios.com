@@ -98,7 +98,7 @@ const T = {
   GRAVITY: 600,             // px/s^2 (low: long, watchable arcs)
   AIR_DRAG: 0.04,           // fraction of velocity lost per second in the air
   ZOOM: 1.5,                // world magnification; the camera leads further ahead to compensate
-  MAX_SPEED: 2300,          // px/s hard cap
+  MAX_SPEED: 5000,          // px/s hard cap (legs have no level cap, so this is the real ceiling)
   LAUNCH_MIN: 480,          // px/s at 0% charge
   LAUNCH_MAX: 1120,         // px/s at 100% charge (before legs upgrade and bonus)
   CHARGE_TIME: 1.1,         // s from empty to full charge
@@ -136,15 +136,19 @@ const T = {
   WALL_MIN: 16,             // px step height that counts as a wall
   LIP: 30,                  // px: frog centre this close under a wall top clambers over it instead of hitting it
   PX_PER_M: 10,             // score scale
-  CAPS_PER_M: 1 / 8,        // currency per metre
-  CAPS_PER_FLY: 2,
+  CAPS_PER_M: 1 / 8,        // currency per metre (distance is the only score; flies pay in charges)
+  // where anchors sit, in px above the ground, by band; a full launch tops out around 690 px up
+  BANDS: { low: [100, 280], mid: [280, 460], high: [460, 660] },
+  ANCHOR_GAP: 250,          // px between anchor slots at the start (+30 per 1000 px travelled, up to 10x)
+  ANCHOR_PAIR: 0.35,        // chance a slot spawns a second anchor in another band
 };
 
+// cost is a function of the current level; max Infinity means it never stops
 const UPGRADES = [
-  { id: 'legs',   name: 'Stronger legs', desc: '+9% launch power per level',        max: 3, cost: [40, 90, 170] },
-  { id: 'tongue', name: 'Longer tongue', desc: '+45 px grab reach per level',       max: 3, cost: [30, 70, 150] },
-  { id: 'charge', name: 'Extra charge',  desc: 'Start each run with one more grab', max: 2, cost: [60, 140] },
-  { id: 'window', name: 'Wider window',  desc: 'A wider clean-release window on the launch', max: 2, cost: [35, 80] },
+  { id: 'legs',   name: 'Stronger legs', desc: '+9% launch power per level, no limit', max: Infinity, cost: l => Math.round(40 * Math.pow(1.5, l)) },
+  { id: 'tongue', name: 'Longer tongue', desc: '+45 px grab reach per level',          max: 5, cost: l => [30, 70, 150, 300, 600][l] },
+  { id: 'charge', name: 'Extra charge',  desc: 'Start each run with one more grab',    max: 2, cost: l => [60, 140][l] },
+  { id: 'window', name: 'Wider window',  desc: 'A wider clean-release window on the launch', max: 2, cost: l => [35, 80][l] },
 ];
 
 // ---------------------------------------------------------------- save
@@ -169,7 +173,9 @@ function persist() {
 // ---------------------------------------------------------------- canvas / viewport
 // The canvas fills the viewport in CSS pixels (W x H). The world is drawn at zoom Z = cam.z * base, where base
 // shrinks on small screens so a phone still sees far enough ahead. HUD text stays in CSS pixels.
-const GROUND_Y = 440, REF_W = 960, REF_H = 540;
+const GROUND_Y = 440, REF_W = 960, REF_H = 540, START_X = 70;
+// the score: furthest point reached, measured from the launch pad
+const distM = () => Math.max(0, Math.floor((frog.maxX - START_X) / T.PX_PER_M));
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
 let W = REF_W, H = REF_H, dpr = 1, base = 1;
 function resize() {
@@ -298,22 +304,29 @@ function placeAnchor() {
   // every building gets one anchor within reach in front of its wall: the wall is the classic save moment
   const guard = world.spans.find(s => s.type === 'roof' && !s.guarded && s.x0 > x - 60 && s.x0 < x + 520);
   if (guard) { guard.guarded = true; x = Math.max(x - 60, guard.x0 - 300 - rng() * 120); }
+  const r = rng();
+  const band = guard ? (r < 0.6 ? 'low' : 'mid') : r < 0.45 ? 'low' : r < 0.78 ? 'mid' : 'high';
+  spawnAnchor(x, band, d, guard);
+  if (rng() < T.ANCHOR_PAIR) spawnAnchor(x + rng() * 160 - 80, band === 'low' ? (rng() < 0.5 ? 'mid' : 'high') : band === 'mid' ? (rng() < 0.5 ? 'low' : 'high') : 'mid', d, null);
+  world.nextAnchorX += T.ANCHOR_GAP + 30 * Math.min(d, 10) + rng() * 160 - 50;
+}
+function spawnAnchor(x, band, d, guard) {
+  const [lo, hi] = T.BANDS[band];
   const sy = surfaceY(x);
-  let y = GROUND_Y - (100 + rng() * 180 + Math.min(d, 6) * 18 * rng());
-  y = clamp(Math.min(y, sy - 100), 90, GROUND_Y - 100);
+  let y = GROUND_Y - (lo + rng() * (hi - lo));
+  y = Math.min(y, sy - 100);
   if (guard) y = Math.min(y, guard.y0 - 70);
   const r = rng();
   const droneBias = Math.min(d, 6) * 0.03;
   let type = r < 0.34 - droneBias ? 'bird' : r < 0.54 - droneBias ? 'balloon' : r < 0.76 - droneBias ? 'wire' : 'drone';
-  if (type === 'wire' && !(isGround(x - 100) && isGround(x + 100))) type = 'bird';
-  if (world.anchors.length === 0 && type === 'bird') type = isGround(x - 100) && isGround(x + 100) ? 'wire' : 'balloon'; // the first read never moves away
+  if (type === 'wire' && (band !== 'low' || !(isGround(x - 100) && isGround(x + 100)))) type = rng() < 0.5 ? 'bird' : 'balloon';
+  if (world.anchors.length === 0 && type === 'bird') type = band === 'low' && isGround(x - 100) && isGround(x + 100) ? 'wire' : 'balloon'; // the first read never moves away
   const a = { type, x, y, bx: x, by: y, phase: rng() * 6.28, tugx: 0, tugy: 0, yank: 0 };
   if (type === 'bird') { a.vx = (rng() < 0.72 ? -1 : 1) * (70 + rng() * 90 + Math.min(d, 6) * 9); a.by = Math.min(a.by, GROUND_Y - 170); a.y = a.by; }
   if (type === 'drone') { a.amp = 50 + rng() * 60; a.spd = 0.8 + rng() * 0.6 + Math.min(d, 6) * 0.08; }
   if (type === 'balloon') { a.hue = rng() < 0.5 ? '#9a4a44' : rng() < 0.5 ? '#b0a15a' : '#5f7a8a'; a.drift = rng() * 2 - 1; }
   if (type === 'wire') { a.x0 = x - 100; a.x1 = x + 100; a.sag = 26 + rng() * 22; a.y = Math.max(a.y, 120); }
   world.anchors.push(a);
-  world.nextAnchorX += 330 + 35 * Math.min(d, 10) + rng() * 220 - 80;
 }
 function wirePoint(a, t) {
   const sag = a.sag * 4 * t * (1 - t);
@@ -357,10 +370,10 @@ function newRun() {
   cam = null; // the old camera must not cull the new world
   newWorld((Math.random() * 1e9) | 0);
   frog = {
-    x: 70, y: GROUND_Y - 62 - 13, vx: 0, vy: 0, r: 13, state: 'ready', facing: 1,
+    x: START_X, y: GROUND_Y - 62 - 13, vx: 0, vy: 0, r: 13, state: 'ready', facing: 1,
     charge: 0, chargeT: 0, chargeRising: true, angle: 48, aimByMouse: false,
     charges: T.START_CHARGES + save.up.charge, tongue: null, pick: null,
-    maxX: 70, skips: 0, waterSkips: 0, flies: 0, grabs: 0, stretchT: 0, squashT: 0, airT: 0,
+    maxX: START_X, skips: 0, waterSkips: 0, flies: 0, grabs: 0, stretchT: 0, squashT: 0, airT: 0,
     endT: 0, endReason: '', noChargeT: 0, capsEarned: 0, bonus: false, lockT: 0, newBest: false,
   };
   cam = { x: frog.x + 260, y: GROUND_Y + 80 - REF_H / 2, z: 1 };
@@ -387,8 +400,8 @@ function endRun(reason) {
   const f = frog;
   if (f.state === 'ended') return;
   f.state = 'ended'; f.endReason = reason; f.endT = 0; f.tongue = null;
-  const m = Math.floor(f.maxX / T.PX_PER_M);
-  f.capsEarned = Math.floor(m * T.CAPS_PER_M) + f.flies * T.CAPS_PER_FLY;
+  const m = distM();
+  f.capsEarned = Math.floor(m * T.CAPS_PER_M);
   save.caps += f.capsEarned; save.flies += f.flies;
   if (m > save.best) { save.best = m; f.newBest = true; }
   persist();
@@ -771,7 +784,7 @@ function toggleShop() {
 function buyUpgrade(u, row) {
   const lvl = save.up[u.id];
   if (lvl >= u.max) return;
-  const cost = u.cost[lvl];
+  const cost = u.cost(lvl);
   if (save.caps < cost) { if (row) { row.classList.add('short'); setTimeout(() => row.classList.remove('short'), 400); } return; }
   save.caps -= cost; save.up[u.id]++; persist();
   if (u.id === 'charge' && frog.state === 'ready') frog.charges = T.START_CHARGES + save.up.charge;
@@ -781,13 +794,14 @@ function renderShop(justBought) {
   el.shopCaps.textContent = save.caps;
   el.shopList.textContent = '';
   UPGRADES.forEach((u, i) => {
-    const lvl = save.up[u.id], maxed = lvl >= u.max, cost = maxed ? null : u.cost[lvl];
+    const lvl = save.up[u.id], maxed = lvl >= u.max, cost = maxed ? null : u.cost(lvl);
     const row = document.createElement('div'); row.className = 'up' + (justBought === u.id ? ' bought' : '');
     const txt = document.createElement('div'); txt.className = 'txt';
     const name = document.createElement('div'); name.className = 'name'; name.textContent = `${i + 1}. ${u.name}`;
     const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = u.desc;
     const dots = document.createElement('div'); dots.className = 'dots';
-    for (let k = 0; k < u.max; k++) { const d = document.createElement('span'); d.className = 'dot' + (k < lvl ? ' on' : ''); dots.appendChild(d); }
+    if (isFinite(u.max)) for (let k = 0; k < u.max; k++) { const d = document.createElement('span'); d.className = 'dot' + (k < lvl ? ' on' : ''); dots.appendChild(d); }
+    else dots.textContent = `level ${lvl}`;
     txt.append(name, desc, dots);
     row.appendChild(txt);
     if (maxed) { const m = document.createElement('div'); m.className = 'maxed'; m.textContent = 'MAXED'; row.appendChild(m); }
@@ -805,7 +819,7 @@ function renderShop(justBought) {
 }
 const REASONS = { sank: 'Sank in the canal.', splat: 'Face first into the ground.', crumpled: 'Landed hard. Momentum gone.', stopped: 'Slid to a stop.', wall: 'Met a wall.' };
 function renderEnd() {
-  const f = frog, m = Math.floor(f.maxX / T.PX_PER_M);
+  const f = frog, m = distM();
   el.endReason.textContent = REASONS[f.endReason] || 'Run over.';
   el.endM.textContent = `${m} m`; el.endM.className = 'big' + (f.newBest ? ' best' : '');
   el.endBest.textContent = f.newBest ? 'new best' : `best ${save.best} m`;
@@ -1243,7 +1257,7 @@ function drawCap(c, x, y, r) {
 
 function drawHud(c) {
   const f = frog;
-  const m = Math.floor(f.maxX / T.PX_PER_M);
+  const m = distM();
   const small = W < 560, fs = small ? 30 : 40, pad = small ? 12 : 20;
   shadowText(c, `${m} m`, pad, pad + fs * 0.65, `${fs}px ${DISPLAY}`, '#ece6d6');
   shadowText(c, `best ${save.best} m`, pad + 2, pad + fs * 0.65 + 20, `14px ${BODY}`, 'rgba(236,230,214,.8)');
