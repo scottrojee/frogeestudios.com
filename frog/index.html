@@ -2,22 +2,90 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <title>Gutter Frog</title>
 <meta name="description" content="Gutter Frog: launch a frog across a grey city and keep it airborne with its tongue. A small browser game from Frogee Studios.">
 <style>
-  html, body { margin: 0; height: 100%; background: #1d1a16; color: #f6efe0; font: 14px/1.4 Georgia, "Times New Roman", serif; overflow: hidden; }
-  #stage { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; }
-  canvas { display: block; touch-action: none; cursor: crosshair; -webkit-user-select: none; user-select: none; }
-  #bar { position: fixed; left: 0; right: 0; bottom: 0; display: flex; justify-content: space-between; padding: 5px 12px;
-         font-size: 12px; color: rgba(246,239,224,.45); pointer-events: none; letter-spacing: .04em; }
-  #bar a { color: inherit; pointer-events: auto; text-decoration: none; border-bottom: 1px solid rgba(246,239,224,.25); }
-  #bar a:hover { color: #f6efe0; }
+  :root { --paper: #f3ead6; --ink: #1d1a16; --red: #d63a2a; --red-2: #b42d1f; --cream: #f6efe0; --gold: #e8d98a; }
+  html, body { margin: 0; height: 100%; background: #1d1a16; color: var(--cream); font: 15px/1.45 Georgia, "Times New Roman", serif;
+               overflow: hidden; overscroll-behavior: none; -webkit-text-size-adjust: 100%; }
+  #stage { position: fixed; inset: 0; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: crosshair;
+           -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; -webkit-tap-highlight-color: transparent; }
+  .panel { position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%); box-sizing: border-box;
+           width: min(540px, calc(100vw - 20px)); max-height: calc(100vh - 20px); max-height: calc(100dvh - 20px); overflow-y: auto;
+           background: rgba(29,26,22,.92); border: 1px solid rgba(246,239,224,.35); border-radius: 6px;
+           padding: 18px 22px 16px; text-align: center; -webkit-user-select: none; user-select: none; }
+  .panel h1, .panel h2 { font: 400 30px/1.05 Impact, "Arial Narrow", "Helvetica Neue", sans-serif; letter-spacing: .04em; text-transform: uppercase; margin: 0 0 10px; }
+  .panel p { margin: 0 0 9px; }
+  .panel .sub { color: rgba(246,239,224,.72); font-size: 13.5px; }
+  .panel .big { font: 400 50px/1 Impact, "Arial Narrow", "Helvetica Neue", sans-serif; margin: 10px 0 4px; }
+  .panel .big.best { color: var(--gold); }
+  .panel .foot { margin-top: 12px; font-size: 12.5px; color: rgba(246,239,224,.5); }
+  .panel .foot a { color: inherit; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 12px; }
+  .btn { font: 400 15px/1 Impact, "Arial Narrow", "Helvetica Neue", sans-serif; letter-spacing: .08em; text-transform: uppercase;
+         background: var(--red); color: var(--cream); border: 2px solid var(--ink); box-shadow: 3px 3px 0 #000;
+         padding: 0 18px; min-height: 44px; min-width: 120px; cursor: pointer; touch-action: manipulation; }
+  .btn:active { transform: translate(1px, 1px); box-shadow: 2px 2px 0 #000; }
+  .btn.ghost { background: transparent; border-color: rgba(246,239,224,.45); box-shadow: none; }
+  .btn[disabled] { background: rgba(80,74,66,.6); color: rgba(246,239,224,.6); cursor: default; }
+  body.touch .kb { display: none; }
+  body:not(.touch) .tp { display: none; }
+  #shop .head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  #shop .caps { font: 400 22px/1 Impact, "Arial Narrow", sans-serif; }
+  .cap { display: inline-block; width: 14px; height: 14px; border-radius: 50%; background: #b3a37a; box-shadow: inset 0 0 0 4px #b3a37a, inset 0 0 0 7px #7f7052; vertical-align: -2px; margin-right: 4px; }
+  .up { display: flex; align-items: center; gap: 12px; text-align: left; padding: 10px 8px; border-top: 1px solid rgba(246,239,224,.12); }
+  .up .name { font: 400 18px/1.1 Impact, "Arial Narrow", sans-serif; letter-spacing: .03em; }
+  .up .desc { font-size: 13px; color: rgba(246,239,224,.72); }
+  .up .dots { white-space: nowrap; margin-top: 3px; }
+  .up .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: rgba(246,239,224,.18); margin-right: 5px; }
+  .up .dot.on { background: var(--gold); }
+  .up .txt { flex: 1; min-width: 0; }
+  .up .btn { min-width: 96px; padding: 0 12px; font-size: 14px; }
+  .up .need { font-size: 11px; color: rgba(246,239,224,.5); text-align: center; margin-top: 3px; }
+  .up.bought { background: rgba(63,143,76,.22); }
+  .up.short { background: rgba(214,58,42,.22); }
+  .up .maxed { font: 400 14px/1 Impact, "Arial Narrow", sans-serif; color: rgba(246,239,224,.5); min-width: 96px; text-align: center; }
+  @media (max-width: 480px) { .panel { padding: 14px 14px 12px; } .panel h1 { font-size: 26px; } .panel .big { font-size: 42px; } .up { gap: 8px; } }
 </style>
 </head>
 <body>
 <div id="stage"><canvas id="c"></canvas></div>
-<div id="bar"><span>Gutter Frog</span><a href="/">frogeestudios.com</a></div>
+
+<div id="hint" class="panel" hidden>
+  <h1>Gutter Frog</h1>
+  <p class="kb">Hold <b>Space</b> or the mouse button to charge. Aim with the mouse. Release to jump. Let go in the bright band for a clean launch.</p>
+  <p class="kb">In the air, click to grab a bird, wire, balloon or drone with your tongue. You get 3 grabs. Eat flies for more.</p>
+  <p class="tp">Hold anywhere to charge, drag to aim, let go to jump. Let go in the bright band for a clean launch.</p>
+  <p class="tp">In the air, tap to grab the marked bird, wire, balloon or drone with your tongue. Tap near a different one to grab that instead. You get 3 grabs. Eat flies for more.</p>
+  <p>Land shallow to skip along. Water skips best. Bricks do not.</p>
+  <p class="kb sub">R restarts. U opens upgrades between runs.</p>
+  <p class="tp sub">Tap the screen after a run to go again.</p>
+  <p class="foot"><a href="/">frogeestudios.com</a></p>
+</div>
+
+<div id="end" class="panel" hidden>
+  <p id="endReason"></p>
+  <div id="endM" class="big"></div>
+  <div id="endBest" class="sub"></div>
+  <p id="endDetail" class="sub"></p>
+  <p id="endCaps"></p>
+  <div class="row"><button class="btn" id="btnAgain">Again</button><button class="btn ghost" id="btnShop">Upgrades</button></div>
+  <p class="foot kb">Space: again &middot; U: upgrades &middot; <a href="/">frogeestudios.com</a></p>
+  <p class="foot tp"><a href="/">frogeestudios.com</a></p>
+</div>
+
+<div id="shop" class="panel" hidden>
+  <div class="head"><h2>Upgrades</h2><span class="caps"><span class="cap"></span><span id="shopCaps"></span></span></div>
+  <p class="sub">Bought between runs only. Nothing here changes what a button already does.</p>
+  <div id="shopList"></div>
+  <div class="row"><button class="btn ghost" id="btnClose">Close</button></div>
+  <p class="foot kb">1 to 4 buys &middot; U or Esc closes</p>
+</div>
+
 <script>
 (() => {
 'use strict';
@@ -92,17 +160,21 @@ function persist() {
   try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) { memoryOnly = true; }
 }
 
-// ---------------------------------------------------------------- canvas
-const W = 960, H = 540, GROUND_Y = 440;
+// ---------------------------------------------------------------- canvas / viewport
+// The canvas fills the viewport in CSS pixels (W x H). The world is drawn at zoom Z = cam.z * base, where base
+// shrinks on small screens so a phone still sees far enough ahead. HUD text stays in CSS pixels.
+const GROUND_Y = 440, REF_W = 960, REF_H = 540;
 const canvas = document.getElementById('c'), ctx = canvas.getContext('2d');
-let scale = 1, dpr = 1;
+let W = REF_W, H = REF_H, dpr = 1, base = 1;
 function resize() {
   dpr = Math.min(window.devicePixelRatio || 1, 2);
-  scale = Math.min(innerWidth / W, innerHeight / H);
-  canvas.width = Math.round(W * scale * dpr); canvas.height = Math.round(H * scale * dpr);
-  canvas.style.width = Math.round(W * scale) + 'px'; canvas.style.height = Math.round(H * scale) + 'px';
+  W = Math.max(200, innerWidth); H = Math.max(200, innerHeight);
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  base = clamp(Math.min(W / 900, H / 520), 0.5, 1);
 }
-addEventListener('resize', resize); resize();
+addEventListener('resize', resize);
+if (window.visualViewport) visualViewport.addEventListener('resize', resize);
+const Z = () => cam.z * base;
 
 // ---------------------------------------------------------------- helpers
 const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
@@ -112,9 +184,10 @@ function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; le
 const rangePx = () => T.TONGUE_RANGE + T.TONGUE_STEP * save.up.tongue;
 const DISPLAY = 'Impact, "Arial Narrow", "Helvetica Neue", sans-serif';
 const BODY = 'Georgia, "Times New Roman", serif';
+resize();
 
 // ---------------------------------------------------------------- world
-let rng, world, frog, cam, particles, ripples, toasts, tNow = 0, ui;
+let rng, world, frog, cam = null, particles, ripples, toasts, tNow = 0, ui;
 
 function newWorld(seed) {
   rng = mulberry32(seed);
@@ -189,15 +262,15 @@ function ensureWorld(toX) {
   while (world.genX < toX + 700) genSpan();
   while (world.nextAnchorX < toX + 300) placeAnchor();
   while (world.nextFlyX < toX + 300) placeFly();
-  while (world.bgFarX < toX * 0.15 + W) { const w = 40 + rng() * 90, h = 120 + rng() * 240; world.bgFar.push({ x: world.bgFarX, w, h, k: rng() }); world.bgFarX += w + rng() * 30; }
-  while (world.bgMidX < toX * 0.38 + W) { const w = 60 + rng() * 120, h = 70 + rng() * 170; world.bgMid.push({ x: world.bgMidX, w, h, k: rng() }); world.bgMidX += w + rng() * 60; }
+  while (world.bgFarX < toX * 0.15 + REF_W * 1.5) { const w = 40 + rng() * 90, h = 120 + rng() * 240; world.bgFar.push({ x: world.bgFarX, w, h, k: rng() }); world.bgFarX += w + rng() * 30; }
+  while (world.bgMidX < toX * 0.38 + REF_W * 1.5) { const w = 60 + rng() * 120, h = 70 + rng() * 170; world.bgMid.push({ x: world.bgMidX, w, h, k: rng() }); world.bgMidX += w + rng() * 60; }
   // cull what is far behind the camera
   const cx = cam ? cam.x : 0;
   while (world.spans.length > 2 && world.spans[1].x1 < cx - 2500) world.spans.shift();
   world.anchors = world.anchors.filter(a => a.x > cx - 1500);
   world.flies = world.flies.filter(f => f.x > cx - 1500);
-  world.bgFar = world.bgFar.filter(b => b.x + b.w > cx * 0.15 - W);
-  world.bgMid = world.bgMid.filter(b => b.x + b.w > cx * 0.38 - W);
+  world.bgFar = world.bgFar.filter(b => b.x + b.w > cx * 0.15 - REF_W * 1.5);
+  world.bgMid = world.bgMid.filter(b => b.x + b.w > cx * 0.38 - REF_W * 1.5);
 }
 
 function spanIndexAt(x) {
@@ -278,11 +351,11 @@ function newRun() {
     charge: 0, chargeT: 0, chargeRising: true, angle: 48, aimByMouse: false,
     charges: T.START_CHARGES + save.up.charge, tongue: null, pick: null,
     maxX: 70, skips: 0, waterSkips: 0, flies: 0, grabs: 0, stretchT: 0, squashT: 0, airT: 0,
-    endT: 0, endReason: '', noChargeT: 0, sinkY: 0, capsEarned: 0, bonus: false, lockT: 0,
+    endT: 0, endReason: '', noChargeT: 0, capsEarned: 0, bonus: false, lockT: 0, newBest: false,
   };
-  cam = { x: frog.x + 260, y: GROUND_Y + 80 - H / 2, z: 1 };
+  cam = { x: frog.x + 260, y: GROUND_Y + 80 - REF_H / 2, z: 1 };
   particles = []; ripples = []; toasts = [];
-  ui = { overlay: null, buttons: [] };
+  ui = { shop: false, endShown: false };
 }
 
 function launch() {
@@ -558,31 +631,39 @@ function updateFx(dt) {
 }
 
 // ---------------------------------------------------------------- camera
+// The ground sits near the bottom of a wide screen; on a tall (portrait) screen it rises so the sky is not
+// three quarters of the picture.
+function groundPad(viewH) { return Math.max(80, (viewH - REF_H) * 0.4); }
 function updateCam(dt) {
   const f = frog;
   let tx, ty, tz;
-  if (f.state === 'ready' || f.state === 'charging') { tx = f.x + 260; tz = 1; ty = GROUND_Y + 80 - H / 2; }
-  else {
-    const look = clamp(f.vx * 0.5, 80, 420);
-    tx = f.x + look;
+  if (f.state === 'ready' || f.state === 'charging') {
+    tz = 1; const viewW = W / (tz * base), viewH = H / (tz * base);
+    tx = f.x + viewW * 0.27; ty = GROUND_Y + groundPad(viewH) - viewH / 2;
+  } else {
     const hgt = GROUND_Y - f.y;
     tz = clamp(1 - Math.max(0, hgt - 220) / 800, 0.5, 1);
-    const viewH = H / tz;
-    ty = Math.min(f.y + viewH * 0.12, GROUND_Y + 80 - viewH / 2);
+    const viewW = W / (tz * base), viewH = H / (tz * base);
+    tx = f.x + clamp(f.vx * 0.5, 80, viewW * 0.44);
+    ty = Math.min(f.y + viewH * 0.12, GROUND_Y + groundPad(viewH) - viewH / 2);
   }
   const k = 1 - Math.exp(-dt * 7), ky = 1 - Math.exp(-dt * 5), kz = 1 - Math.exp(-dt * 3);
   cam.x = lerp(cam.x, tx, k); cam.y = lerp(cam.y, ty, ky); cam.z = lerp(cam.z, tz, kz);
 }
-function toWorld(sx, sy) { return { x: (sx - W / 2) / cam.z + cam.x, y: (sy - H / 2) / cam.z + cam.y }; }
-function toScreen(wx, wy) { return { x: (wx - cam.x) * cam.z + W / 2, y: (wy - cam.y) * cam.z + H / 2 }; }
+function toWorld(sx, sy) { const z = Z(); return { x: (sx - W / 2) / z + cam.x, y: (sy - H / 2) / z + cam.y }; }
+function toScreen(wx, wy) { const z = Z(); return { x: (wx - cam.x) * z + W / 2, y: (wy - cam.y) * z + H / 2 }; }
 
 // ---------------------------------------------------------------- input
-const mouse = { sx: W / 2, sy: H / 2, wx: 0, wy: 0, down: false };
+// Mouse: hover aims, click acts. Touch: no hover, so between taps the cursor rests on a point ahead of the frog and
+// the reticle marks the anchor that a tap anywhere would take; tapping near a different anchor takes that one.
+const mouse = { sx: W / 2, sy: H / 2, wx: 0, wy: 0, down: false, touch: false, touchAim: false };
 let spaceHeld = false;
+try { if (matchMedia('(hover: none)').matches) setTouch(true); } catch (e) {}
+function setTouch(on) { mouse.touch = on; document.body.classList.toggle('touch', on); }
 canvas.addEventListener('contextmenu', e => e.preventDefault());
 function pointerPos(e) {
   const r = canvas.getBoundingClientRect();
-  mouse.sx = (e.clientX - r.left) / scale; mouse.sy = (e.clientY - r.top) / scale;
+  mouse.sx = e.clientX - r.left; mouse.sy = e.clientY - r.top;
   const w = toWorld(mouse.sx, mouse.sy); mouse.wx = w.x; mouse.wy = w.y;
 }
 function aimFromMouse() {
@@ -592,13 +673,15 @@ function aimFromMouse() {
   f.aimByMouse = true;
 }
 canvas.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch' && !mouse.down) return;
   pointerPos(e);
   if (frog.state === 'ready' || frog.state === 'charging') aimFromMouse();
 });
 canvas.addEventListener('pointerdown', e => {
-  pointerPos(e); mouse.down = true;
+  if (e.pointerType === 'touch' || e.pointerType === 'pen') setTouch(true); else if (e.pointerType === 'mouse') setTouch(false);
+  pointerPos(e); mouse.down = true; mouse.touchAim = false;
   try { canvas.setPointerCapture(e.pointerId); } catch (err) {}
-  if (ui.overlay) { for (const b of ui.buttons) if (mouse.sx >= b.x && mouse.sx <= b.x + b.w && mouse.sy >= b.y && mouse.sy <= b.y + b.h) { b.fn(); break; } return; }
+  if (ui.shop) return;
   press(true);
 });
 canvas.addEventListener('pointerup', e => { pointerPos(e); mouse.down = false; release(); });
@@ -615,42 +698,95 @@ function release() { if (frog.state === 'charging') launch(); }
 addEventListener('keydown', e => {
   if (e.repeat) return;
   const k = e.key;
-  if (k === ' ' || k === 'Spacebar') { e.preventDefault(); if (ui.overlay) return; spaceHeld = true; press(false); }
-  else if (k === 'r' || k === 'R') { if (ui.overlay) return; restart(); }
-  else if (k === 'u' || k === 'U') { toggleUpgrades(); }
-  else if (k === 'Escape') { if (ui.overlay) ui.overlay = null; }
+  if (k === ' ' || k === 'Spacebar') { e.preventDefault(); if (ui.shop) return; spaceHeld = true; press(false); }
+  else if (k === 'r' || k === 'R') { if (ui.shop) return; restart(); }
+  else if (k === 'u' || k === 'U') { toggleShop(); }
+  else if (k === 'Escape') { if (ui.shop) toggleShop(); }
   else if (k === 'ArrowUp' || k === 'w' || k === 'W') { e.preventDefault(); nudge(2); }
   else if (k === 'ArrowDown' || k === 's' || k === 'S') { e.preventDefault(); nudge(-2); }
-  else if (ui.overlay === 'upgrades' && k >= '1' && k <= '4') buyUpgrade(UPGRADES[k - 1]);
+  else if (ui.shop && k >= '1' && k <= '4') buyUpgrade(UPGRADES[k - 1]);
 });
 addEventListener('keyup', e => {
   if (e.key === ' ' || e.key === 'Spacebar') { spaceHeld = false; if (!mouse.down) release(); }
 });
 addEventListener('blur', () => { spaceHeld = false; mouse.down = false; release(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden) { spaceHeld = false; mouse.down = false; release(); } });
 function nudge(d) { const f = frog; if (f.state === 'ready' || f.state === 'charging') { f.angle = clamp(f.angle + d, T.ANGLE_MIN, T.ANGLE_MAX); f.aimByMouse = false; } }
-function toggleUpgrades() {
-  if (ui.overlay === 'upgrades') { ui.overlay = null; return; }
-  if (frog.state === 'ready' || (frog.state === 'ended' && frog.endT > 0.5)) ui.overlay = 'upgrades';
+
+// ---------------------------------------------------------------- panels (HTML, so they reflow on a phone)
+const el = {};
+for (const id of ['hint', 'end', 'shop', 'endReason', 'endM', 'endBest', 'endDetail', 'endCaps', 'shopCaps', 'shopList', 'btnAgain', 'btnShop', 'btnClose']) el[id] = document.getElementById(id);
+el.btnAgain.addEventListener('click', () => { restart(); });
+el.btnShop.addEventListener('click', () => { toggleShop(); });
+el.btnClose.addEventListener('click', () => { toggleShop(); });
+function toggleShop() {
+  if (ui.shop) { ui.shop = false; el.shop.hidden = true; return; }
+  if (frog.state === 'ready' || (frog.state === 'ended' && frog.endT > 0.5)) { ui.shop = true; renderShop(); el.shop.hidden = false; }
 }
-function buyUpgrade(u) {
+function buyUpgrade(u, row) {
   const lvl = save.up[u.id];
   if (lvl >= u.max) return;
   const cost = u.cost[lvl];
-  if (save.caps < cost) { ui.flash = { id: u.id, t: 0.4 }; return; }
+  if (save.caps < cost) { if (row) { row.classList.add('short'); setTimeout(() => row.classList.remove('short'), 400); } return; }
   save.caps -= cost; save.up[u.id]++; persist();
-  ui.bought = { id: u.id, t: 0.6 };
   if (u.id === 'charge' && frog.state === 'ready') frog.charges = T.START_CHARGES + save.up.charge;
+  renderShop(u.id);
+}
+function renderShop(justBought) {
+  el.shopCaps.textContent = save.caps;
+  el.shopList.textContent = '';
+  UPGRADES.forEach((u, i) => {
+    const lvl = save.up[u.id], maxed = lvl >= u.max, cost = maxed ? null : u.cost[lvl];
+    const row = document.createElement('div'); row.className = 'up' + (justBought === u.id ? ' bought' : '');
+    const txt = document.createElement('div'); txt.className = 'txt';
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = `${i + 1}. ${u.name}`;
+    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = u.desc;
+    const dots = document.createElement('div'); dots.className = 'dots';
+    for (let k = 0; k < u.max; k++) { const d = document.createElement('span'); d.className = 'dot' + (k < lvl ? ' on' : ''); dots.appendChild(d); }
+    txt.append(name, desc, dots);
+    row.appendChild(txt);
+    if (maxed) { const m = document.createElement('div'); m.className = 'maxed'; m.textContent = 'MAXED'; row.appendChild(m); }
+    else {
+      const side = document.createElement('div');
+      const b = document.createElement('button'); b.className = 'btn'; b.textContent = `Buy ${cost}`;
+      const can = save.caps >= cost; b.disabled = !can;
+      b.addEventListener('click', () => buyUpgrade(u, row));
+      side.appendChild(b);
+      if (!can) { const n = document.createElement('div'); n.className = 'need'; n.textContent = `need ${cost - save.caps} more`; side.appendChild(n); }
+      row.appendChild(side);
+    }
+    el.shopList.appendChild(row);
+  });
+}
+const REASONS = { sank: 'Sank in the canal.', splat: 'Face first into the ground.', crumpled: 'Landed hard. Momentum gone.', stopped: 'Slid to a stop.', wall: 'Met a wall.' };
+function renderEnd() {
+  const f = frog, m = Math.floor(f.maxX / T.PX_PER_M);
+  el.endReason.textContent = REASONS[f.endReason] || 'Run over.';
+  el.endM.textContent = `${m} m`; el.endM.className = 'big' + (f.newBest ? ' best' : '');
+  el.endBest.textContent = f.newBest ? 'new best' : `best ${save.best} m`;
+  el.endDetail.textContent = `${f.grabs} grab${f.grabs === 1 ? '' : 's'} · ${f.skips} skip${f.skips === 1 ? '' : 's'} · ${f.flies} ${f.flies === 1 ? 'fly' : 'flies'}`;
+  el.endCaps.textContent = ''; const cap = document.createElement('span'); cap.className = 'cap'; el.endCaps.append(cap, `+${f.capsEarned} caps`);
+}
+function syncPanels() {
+  const f = frog;
+  const showHint = f.state === 'ready' && !save.seen && !ui.shop;
+  const showEnd = f.state === 'ended' && f.endT > 0.8 && !ui.shop;
+  if (el.hint.hidden === showHint) el.hint.hidden = !showHint;
+  if (showEnd && !ui.endShown) { renderEnd(); ui.endShown = true; }
+  if (el.end.hidden === showEnd) el.end.hidden = !showEnd;
+  if (!ui.shop && !el.shop.hidden) el.shop.hidden = true;
 }
 
 // ---------------------------------------------------------------- drawing
 function draw() {
   const c = ctx;
-  c.setTransform(scale * dpr, 0, 0, scale * dpr, 0, 0);
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
   drawSky(c);
   drawBackground(c);
   c.save();
-  c.translate(W / 2, H / 2); c.scale(cam.z, cam.z); c.translate(-cam.x, -cam.y);
-  const vw = W / cam.z, vh = H / cam.z, vx0 = cam.x - vw / 2, vx1 = cam.x + vw / 2, vy0 = cam.y - vh / 2, vy1 = cam.y + vh / 2;
+  const z = Z();
+  c.translate(W / 2, H / 2); c.scale(z, z); c.translate(-cam.x, -cam.y);
+  const vw = W / z, vh = H / z, vx0 = cam.x - vw / 2, vx1 = cam.x + vw / 2, vy1 = cam.y + vh / 2;
   drawBuildings(c, vx0, vx1, vy1);
   drawGround(c, vx0, vx1, vy1);
   drawDecor(c, vx0, vx1);
@@ -673,43 +809,44 @@ function drawSky(c) {
   g.addColorStop(0, '#6a717d'); g.addColorStop(0.55, '#9a978f'); g.addColorStop(1, '#bdb3a2');
   c.fillStyle = g; c.fillRect(0, 0, W, H);
   // a pale sun behind haze
-  const sx = W * 0.68 - cam.x * 0.02, sy = 86 - cam.y * 0.05;
+  const sx = W * 0.68 - cam.x * 0.02, sy = H * 0.16 - cam.y * 0.05;
   const rg = c.createRadialGradient(sx, sy, 10, sx, sy, 140);
   rg.addColorStop(0, 'rgba(238,230,210,.55)'); rg.addColorStop(0.25, 'rgba(238,230,210,.18)'); rg.addColorStop(1, 'rgba(238,230,210,0)');
   c.fillStyle = rg; c.fillRect(0, 0, W, H);
   // smog streaks
   c.fillStyle = '#7d7b78';
+  const span = W + 900;
   for (const h of world.haze) {
-    const x = ((h.x - cam.x * 0.06) % (W + 900) + W + 900) % (W + 900) - 450;
-    c.globalAlpha = h.a; c.beginPath(); c.ellipse(x, h.y - cam.y * 0.05, h.w / 2, h.h / 2, 0, 0, 6.29); c.fill();
+    const x = ((h.x - cam.x * 0.06) % span + span) % span - 450;
+    c.globalAlpha = h.a; c.beginPath(); c.ellipse(x, h.y * (H / REF_H) - cam.y * 0.05, h.w / 2, h.h / 2, 0, 0, 6.29); c.fill();
   }
   c.globalAlpha = 1;
 }
 
 function drawBackground(c) {
-  const horizon = (GROUND_Y - cam.y) * cam.z + H / 2;
+  const z = Z();
+  const horizon = (GROUND_Y - cam.y) * z + H / 2;
+  const hs = 0.6 + 0.4 * z; // silhouettes shrink a little with the zoom
   // far layer
   c.fillStyle = '#88857c';
   for (const b of world.bgFar) {
-    const sx = b.x - cam.x * 0.15, top = horizon - b.h * (0.6 + 0.4 * cam.z) - 20;
-    if (sx + b.w < -10 || sx > W + 10) continue;
-    c.fillRect(sx, top, b.w, horizon - top + 40);
-    if (b.k > 0.7) { c.fillRect(sx + b.w * 0.4, top - 18, 4, 18); }
+    const sx = (b.x - cam.x * 0.15) * base + W / 2 - REF_W / 2 * base, w = b.w * base;
+    const top = horizon - b.h * hs - 20;
+    if (sx + w < -10 || sx > W + 10) continue;
+    c.fillRect(sx, top, w, horizon - top + 40);
+    if (b.k > 0.7) c.fillRect(sx + w * 0.4, top - 18, 4, 18);
   }
   // mid layer
-  c.fillStyle = '#6b675f';
   for (const b of world.bgMid) {
-    const sx = (b.x - cam.x * 0.38);
-    const top = horizon - b.h * (0.7 + 0.3 * cam.z) - 6;
-    if (sx + b.w < -10 || sx > W + 10) continue;
-    c.fillRect(sx, top, b.w, horizon - top + 40);
-    if (b.k < 0.3) { // water tower
-      c.fillRect(sx + b.w * 0.5 - 2, top - 22, 4, 22); c.fillRect(sx + b.w * 0.5 - 9, top - 34, 18, 14);
-    } else if (b.k > 0.8) { c.fillRect(sx + 8, top - 30, 6, 30); }
-    // dim windows
-    c.fillStyle = 'rgba(40,40,44,.35)';
-    for (let wx = sx + 8; wx < sx + b.w - 8; wx += 14) for (let wy = top + 10; wy < horizon - 10; wy += 16) if (((wx * 7 + wy * 13) | 0) % 5 !== 0) c.fillRect(wx, wy, 5, 7);
+    const sx = (b.x - cam.x * 0.38) * base + W / 2 - REF_W / 2 * base, w = b.w * base;
+    const top = horizon - b.h * hs - 6;
+    if (sx + w < -10 || sx > W + 10) continue;
     c.fillStyle = '#6b675f';
+    c.fillRect(sx, top, w, horizon - top + 40);
+    if (b.k < 0.3) { c.fillRect(sx + w * 0.5 - 2, top - 22, 4, 22); c.fillRect(sx + w * 0.5 - 9, top - 34, 18, 14); } // water tower
+    else if (b.k > 0.8) c.fillRect(sx + 8, top - 30, 6, 30);
+    c.fillStyle = 'rgba(40,40,44,.35)';
+    for (let wx = sx + 8; wx < sx + w - 8; wx += 14) for (let wy = top + 10; wy < horizon - 10; wy += 16) if (((wx * 7 + wy * 13) | 0) % 5 !== 0) c.fillRect(wx, wy, 5, 7);
   }
 }
 
@@ -717,28 +854,22 @@ function drawBuildings(c, vx0, vx1, vy1) {
   for (const s of world.spans) {
     if (s.type !== 'roof' || s.x1 < vx0 || s.x0 > vx1) continue;
     c.fillStyle = s.col; c.fillRect(s.x0, s.y0, s.x1 - s.x0, vy1 - s.y0 + 10);
-    // windows
     const cell = s.wcell;
-    c.fillStyle = s.col2;
     for (let wx = s.x0 + 10; wx < s.x1 - 14; wx += cell) for (let wy = s.y0 + 22; wy < GROUND_Y - 10; wy += cell) {
       const h = ((wx * 31 + wy * 17 + s.wseed) | 0) % 11;
       c.fillStyle = h === 0 ? '#b8a26a' : h < 3 ? '#2a2c30' : s.col2;
       c.fillRect(wx, wy, 9, 13);
     }
-    // parapet and a grime line
     c.fillStyle = '#403c38'; c.fillRect(s.x0, s.y0 - 4, s.x1 - s.x0, 5);
     c.fillStyle = 'rgba(0,0,0,.14)'; c.fillRect(s.x0, s.y0 + 1, s.x1 - s.x0, 6);
-    // door at street level if next to ground
     c.fillStyle = '#2b2622'; c.fillRect(s.x0 + 14, GROUND_Y - 30, 14, 30);
   }
 }
 
 function drawGround(c, vx0, vx1, vy1) {
-  // under-everything earth
   c.fillStyle = '#4a4436'; c.fillRect(vx0, GROUND_Y + 14, vx1 - vx0, vy1 - GROUND_Y);
   for (const s of world.spans) {
     if (s.x1 < vx0 || s.x0 > vx1) continue;
-    const x0 = Math.max(s.x0, vx0 - 5), x1 = Math.min(s.x1, vx1 + 5);
     if (s.type === 'dirt') {
       c.fillStyle = '#5c553f';
       c.beginPath(); c.moveTo(s.x0, s.y0); c.lineTo(s.x1, s.y1); c.lineTo(s.x1, vy1 + 10); c.lineTo(s.x0, vy1 + 10); c.closePath(); c.fill();
@@ -746,13 +877,13 @@ function drawGround(c, vx0, vx1, vy1) {
       c.strokeStyle = '#3f3a2c'; c.lineWidth = 1.2; c.beginPath(); c.moveTo(s.x0, s.y0 + 6); c.lineTo(s.x1, s.y1 + 6); c.stroke();
     } else if (s.type === 'road') {
       c.fillStyle = '#57565b'; c.fillRect(s.x0, s.y0, s.x1 - s.x0, vy1 - s.y0 + 10);
-      c.fillStyle = '#74736f'; c.fillRect(s.x0, s.y0 - 2, s.x1 - s.x0, 4); // kerb
+      c.fillStyle = '#74736f'; c.fillRect(s.x0, s.y0 - 2, s.x1 - s.x0, 4);
       c.fillStyle = '#7f7c6c';
       for (let x = s.x0 + 12; x < s.x1 - 20; x += 44) c.fillRect(x, s.y0 + 15, 22, 2);
       c.strokeStyle = 'rgba(0,0,0,.25)'; c.lineWidth = 1;
       c.beginPath(); c.moveTo(s.x0 + 70, s.y0 + 4); c.lineTo(s.x0 + 90, s.y0 + 30); c.lineTo(s.x0 + 84, s.y0 + 46); c.stroke();
     } else if (s.type === 'water') {
-      c.fillStyle = '#4f4a3c'; c.fillRect(s.x0, GROUND_Y - 2, s.x1 - s.x0, s.y0 - GROUND_Y + 2); // bank edge
+      c.fillStyle = '#4f4a3c'; c.fillRect(s.x0, GROUND_Y - 2, s.x1 - s.x0, s.y0 - GROUND_Y + 2);
       c.fillStyle = '#3b4b45'; c.fillRect(s.x0, s.y0, s.x1 - s.x0, vy1 - s.y0 + 10);
     } else if (s.type === 'roof') {
       c.fillStyle = '#4b4642'; c.fillRect(s.x0, s.y0 - 2, s.x1 - s.x0, 4);
@@ -763,16 +894,13 @@ function drawGround(c, vx0, vx1, vy1) {
 function drawWaterOverlay(c, vx0, vx1) {
   for (const s of world.spans) {
     if (s.type !== 'water' || s.x1 < vx0 || s.x0 > vx1) continue;
-    // surface sheen + slow highlights
     c.fillStyle = 'rgba(120,140,125,.18)'; c.fillRect(s.x0, s.y0, s.x1 - s.x0, 3);
     c.strokeStyle = 'rgba(150,170,150,.35)'; c.lineWidth = 1;
     for (let x = s.x0 + 20; x < s.x1 - 20; x += 46) {
       const o = Math.sin(tNow * 1.3 + x * 0.05 + s.wave) * 6;
       c.beginPath(); c.moveTo(x + o, s.y0 + 8 + Math.sin(x) * 3); c.lineTo(x + o + 16, s.y0 + 8 + Math.sin(x) * 3); c.stroke();
     }
-    // oily patch
     c.fillStyle = 'rgba(90,80,110,.10)'; c.beginPath(); c.ellipse((s.x0 + s.x1) / 2, s.y0 + 20, (s.x1 - s.x0) * 0.2, 6, 0, 0, 6.29); c.fill();
-    // a frog that sank shows through
     if (frog.state === 'ended' && frog.endReason === 'sank' && frog.x > s.x0 && frog.x < s.x1) {
       c.fillStyle = 'rgba(59,75,69,.75)'; c.fillRect(s.x0, s.y0, s.x1 - s.x0, 80);
     }
@@ -807,13 +935,12 @@ function drawDecor(c, vx0, vx1) {
 }
 
 function drawLaunchPad(c) {
-  // a dumpster the frog launches from
   const x = 20, y = GROUND_Y - 62;
   c.fillStyle = '#3e5a48'; c.fillRect(x, y + 6, 100, 56);
   c.fillStyle = '#2f4537'; c.fillRect(x - 2, y, 104, 8);
   c.fillStyle = '#26382c'; c.fillRect(x + 8, y + 18, 84, 3); c.fillRect(x + 8, y + 40, 84, 3);
   c.fillStyle = '#1e1e1c'; c.fillRect(x + 6, GROUND_Y - 6, 10, 6); c.fillRect(x + 84, GROUND_Y - 6, 10, 6);
-  c.fillStyle = '#8f8a7c'; c.fillRect(x + 30, y - 6, 18, 6); // a bag on the lid
+  c.fillStyle = '#8f8a7c'; c.fillRect(x + 30, y - 6, 18, 6);
 }
 
 function drawWires(c, vx0, vx1) {
@@ -829,7 +956,6 @@ function drawWires(c, vx0, vx1) {
       for (let i = 1; i <= 16; i++) { const p = wirePoint(a, i / 16); c.lineTo(p.x, p.y + w * 7); }
       c.stroke();
     }
-    // insulators
     c.fillStyle = '#7a7a70'; c.fillRect(a.x0 - 2, a.y - 5, 4, 5); c.fillRect(a.x1 - 2, a.y - 5, 4, 5);
   }
 }
@@ -844,7 +970,7 @@ function drawAnchor(c, a) {
     c.beginPath(); c.ellipse(0, 0, 11, 5.5, 0, 0, 6.29); c.fill();
     c.fillStyle = '#4c4b54'; c.beginPath(); c.arc(10, -3, 4, 0, 6.29); c.fill();
     c.fillStyle = '#c9a34d'; c.beginPath(); c.moveTo(13, -3); c.lineTo(18, -2); c.lineTo(13, -1); c.fill();
-    c.fillStyle = '#5c5a60'; c.beginPath(); c.moveTo(-10, -1); c.lineTo(-19, 2); c.lineTo(-10, 3); c.fill(); // tail
+    c.fillStyle = '#5c5a60'; c.beginPath(); c.moveTo(-10, -1); c.lineTo(-19, 2); c.lineTo(-10, 3); c.fill();
     c.strokeStyle = '#7d7b82'; c.lineWidth = 3; c.lineCap = 'round';
     c.beginPath(); c.moveTo(-1, -2); c.lineTo(-6, -2 - 12 * flap); c.lineTo(-13, -1 - 15 * flap); c.stroke();
     c.beginPath(); c.moveTo(1, -3); c.lineTo(5, -3 - 11 * flap); c.lineTo(1, -2 - 15 * flap); c.stroke();
@@ -855,7 +981,7 @@ function drawAnchor(c, a) {
     c.fillStyle = a.hue;
     c.beginPath(); c.ellipse(0, 0, 12, 15, 0, 0, 6.29); c.fill();
     c.fillStyle = 'rgba(255,255,255,.14)'; c.beginPath(); c.ellipse(-4, -5, 4, 6, -0.4, 0, 6.29); c.fill();
-    c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(3, 8, 6, 5, 0.3, 0, 6.29); c.fill(); // a deflating sag
+    c.fillStyle = 'rgba(0,0,0,.18)'; c.beginPath(); c.ellipse(3, 8, 6, 5, 0.3, 0, 6.29); c.fill();
     c.fillStyle = a.hue; c.beginPath(); c.moveTo(-3, 14); c.lineTo(3, 14); c.lineTo(0, 18); c.fill();
     c.strokeStyle = '#3a3a38'; c.lineWidth = 1;
     c.beginPath(); c.moveTo(0, 18); for (let i = 1; i <= 8; i++) c.lineTo(Math.sin(tNow * 2 + i) * 3, 18 + i * 6); c.stroke();
@@ -868,7 +994,7 @@ function drawAnchor(c, a) {
     c.fillStyle = 'rgba(150,150,150,.45)';
     c.beginPath(); c.ellipse(-22, -3, 8, 1.8, 0, 0, 6.29); c.fill();
     c.beginPath(); c.ellipse(22, -3, 8, 1.8, 0, 0, 6.29); c.fill();
-    c.fillStyle = '#222'; c.beginPath(); c.arc(0, 6, 3, 0, 6.29); c.fill(); // camera
+    c.fillStyle = '#222'; c.beginPath(); c.arc(0, 6, 3, 0, 6.29); c.fill();
     c.fillStyle = (tNow % 1) < 0.5 ? '#e04a3a' : '#5a2a26'; c.beginPath(); c.arc(-6, -4, 1.6, 0, 6.29); c.fill();
     c.fillStyle = (tNow % 1) < 0.5 ? '#4a8a5a' : '#2a4a32'; c.beginPath(); c.arc(6, -4, 1.6, 0, 6.29); c.fill();
   }
@@ -892,10 +1018,8 @@ function drawTelegraphs(c) {
   const f = frog;
   if (f.state !== 'flying' && f.state !== 'sliding') return;
   const R = rangePx();
-  // grab-range ring
   c.strokeStyle = 'rgba(236,230,214,.13)'; c.lineWidth = 1; c.setLineDash([4, 6]);
   c.beginPath(); c.arc(f.x, f.y, R, 0, 6.29); c.stroke(); c.setLineDash([]);
-  // anchors soon in range get a faint ring that firms up inside range
   for (const a of world.anchors) {
     const p = a.type === 'wire' ? wirePoint(a, 0.5) : anchorPoint(a);
     const d = Math.hypot(p.x - f.x, p.y - f.y);
@@ -908,12 +1032,12 @@ function drawTelegraphs(c) {
       for (let i = 1; i <= 12; i++) { const q = wirePoint(a, i / 12); c.lineTo(q.x, q.y - 6); } c.stroke(); c.setLineDash([]);
     } else { c.setLineDash(inR ? [] : [3, 5]); c.beginPath(); c.arc(p.x, p.y, 22, 0, 6.29); c.stroke(); c.setLineDash([]); }
   }
-  // reticle on the anchor a click would take
   const pk = f.pick;
   if (pk && !f.tongue) {
+    const rr = mouse.touch ? 16 : 12; // a fatter reticle on a phone
     c.strokeStyle = f.charges > 0 ? '#e8d98a' : '#a0574f'; c.lineWidth = 2;
-    c.beginPath(); c.arc(pk.x, pk.y, 12, 0, 6.29); c.stroke();
-    c.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + tNow * 2; c.moveTo(pk.x + Math.cos(a) * 12, pk.y + Math.sin(a) * 12); c.lineTo(pk.x + Math.cos(a) * 18, pk.y + Math.sin(a) * 18); } c.stroke();
+    c.beginPath(); c.arc(pk.x, pk.y, rr, 0, 6.29); c.stroke();
+    c.beginPath(); for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + tNow * 2; c.moveTo(pk.x + Math.cos(a) * rr, pk.y + Math.sin(a) * rr); c.lineTo(pk.x + Math.cos(a) * (rr + 6), pk.y + Math.sin(a) * (rr + 6)); } c.stroke();
   }
 }
 
@@ -946,13 +1070,11 @@ function drawFrog(c) {
 
   const BODYC = '#5b6b34', DARK = '#3f4a26', BELLY = '#a3a276';
   c.lineCap = 'round'; c.lineJoin = 'round';
-  // hind legs (behind the body)
   c.strokeStyle = '#4c5a2c'; c.lineWidth = 4;
   const hip = [-8, 3];
   const knee = [lerp(-16, -20, leg), lerp(-5, 5, leg)], ankle = [lerp(-14, -32, leg), lerp(8, 3, leg)], foot = [lerp(-3, -42, leg), lerp(11, 6, leg)];
   c.beginPath(); c.moveTo(hip[0], hip[1]); c.lineTo(knee[0], knee[1]); c.lineTo(ankle[0], ankle[1]); c.lineTo(foot[0], foot[1]); c.stroke();
   c.lineWidth = 2; for (let i = -1; i <= 1; i++) { c.beginPath(); c.moveTo(foot[0], foot[1]); c.lineTo(foot[0] + lerp(6, -6, leg), foot[1] + i * 3 + (leg > 0.5 ? 0 : 1)); c.stroke(); }
-  // body
   c.fillStyle = BODYC; c.beginPath(); c.ellipse(0, 0, 15, 9, 0, 0, 6.29); c.fill();
   c.save(); c.beginPath(); c.ellipse(0, 0, 15, 9, 0, 0, 6.29); c.clip();
   c.fillStyle = BELLY; c.beginPath(); c.ellipse(1, 6, 13, 6, 0, 0, 6.29); c.fill();
@@ -960,20 +1082,16 @@ function drawFrog(c) {
   c.beginPath(); c.ellipse(2, -4, 3, 2, -0.2, 0, 6.29); c.fill();
   c.beginPath(); c.ellipse(-10, 2, 2.4, 1.8, 0, 0, 6.29); c.fill();
   c.restore();
-  // head
   c.fillStyle = BODYC; c.beginPath(); c.ellipse(11, -3, 8, 6, 0, 0, 6.29); c.fill();
   c.fillStyle = BELLY; c.beginPath(); c.ellipse(12, 1, 6, 2.5, 0, 0, 6.29); c.fill();
-  // eyes
   for (const [ex, ey, er] of [[7, -9, 3.2], [11, -8.5, 3.8]]) {
     c.fillStyle = BODYC; c.beginPath(); c.arc(ex, ey, er + 0.8, 0, 6.29); c.fill();
     c.fillStyle = '#d9d3b8'; c.beginPath(); c.arc(ex, ey, er, 0, 6.29); c.fill();
     c.fillStyle = '#1a1a14'; c.beginPath(); c.ellipse(ex + 1, ey, er * 0.45, er * 0.6, 0, 0, 6.29); c.fill();
     c.strokeStyle = DARK; c.lineWidth = 1.2; c.beginPath(); c.arc(ex, ey, er, Math.PI + 0.3, 2 * Math.PI - 0.3); c.stroke();
   }
-  // mouth
   c.strokeStyle = DARK; c.lineWidth = 1.2; c.beginPath(); c.moveTo(13, 0); c.quadraticCurveTo(17, 1, 19, -1); c.stroke();
   if (f.tongue) { c.fillStyle = '#7a2e30'; c.beginPath(); c.ellipse(16.5, 0, 2.5, 1.6, 0, 0, 6.29); c.fill(); }
-  // front legs
   c.strokeStyle = '#4c5a2c'; c.lineWidth = 3;
   const fl = f.state === 'flying' ? [[7, 4], [10, 11], [16, 12]] : [[7, 4], [9, 10], [15, 11]];
   c.beginPath(); c.moveTo(fl[0][0], fl[0][1]); c.lineTo(fl[1][0], fl[1][1]); c.lineTo(fl[2][0], fl[2][1]); c.stroke();
@@ -983,8 +1101,7 @@ function drawFrog(c) {
 
 function drawParticles(c) {
   for (const p of particles) {
-    const a = 1 - p.age / p.life;
-    c.globalAlpha = a;
+    c.globalAlpha = 1 - p.age / p.life;
     c.fillStyle = p.col;
     if (p.kind === 'feather') { c.save(); c.translate(p.x, p.y); c.rotate(p.spin + p.age * 4); c.beginPath(); c.ellipse(0, 0, 4, 1.5, 0, 0, 6.29); c.fill(); c.restore(); }
     else { c.beginPath(); c.arc(p.x, p.y, p.r, 0, 6.29); c.fill(); }
@@ -994,18 +1111,17 @@ function drawParticles(c) {
 
 function drawFrogHud(c) {
   const f = frog;
-  // charges as pips above the frog
+  const k = 1 / Math.max(0.6, Z()); // frog-side HUD keeps a readable size when zoomed out
   if (f.state !== 'ended') {
-    const n = T.MAX_CHARGES, x0 = f.x - (n - 1) * 4.5, y = f.y - 27;
+    const n = T.MAX_CHARGES, x0 = f.x - (n - 1) * 4.5 * k, y = f.y - 27 * k;
     for (let i = 0; i < n; i++) {
       const on = i < f.charges;
       const shake = f.noChargeT > 0 ? Math.sin(f.noChargeT * 60) * 2 : 0;
       c.fillStyle = on ? '#d9736b' : 'rgba(40,36,30,.35)';
       c.strokeStyle = on ? '#3a1a1a' : 'rgba(236,230,214,.25)'; c.lineWidth = 1;
-      c.beginPath(); c.arc(x0 + i * 9 + shake, y, 3.2, 0, 6.29); c.fill(); c.stroke();
+      c.beginPath(); c.arc(x0 + i * 9 * k + shake, y, 3.2 * k, 0, 6.29); c.fill(); c.stroke();
     }
   }
-  // charge meter, aim arrow and arc preview
   if (f.state === 'ready' || f.state === 'charging') {
     const a = f.angle * DEG, L = 34 + 40 * f.charge;
     c.strokeStyle = 'rgba(236,230,214,.8)'; c.lineWidth = 2; c.lineCap = 'round';
@@ -1014,15 +1130,13 @@ function drawFrogHud(c) {
     c.lineTo(f.x + Math.cos(a + 2.6) * 8 + Math.cos(a) * L, f.y - Math.sin(a + 2.6) * 8 - Math.sin(a) * L);
     c.moveTo(f.x + Math.cos(a) * L, f.y - Math.sin(a) * L);
     c.lineTo(f.x + Math.cos(a - 2.6) * 8 + Math.cos(a) * L, f.y - Math.sin(a - 2.6) * 8 - Math.sin(a) * L); c.stroke();
-    // dotted arc preview for the current charge (first 0.55 s only)
-    let v = (T.LAUNCH_MIN + (T.LAUNCH_MAX - T.LAUNCH_MIN) * f.charge) * (1 + T.LEGS_STEP * save.up.legs);
+    const v = (T.LAUNCH_MIN + (T.LAUNCH_MAX - T.LAUNCH_MIN) * f.charge) * (1 + T.LEGS_STEP * save.up.legs);
     c.fillStyle = 'rgba(236,230,214,.45)';
     for (let t = 0.12; t <= 0.56; t += 0.11) {
       const px = f.x + Math.cos(a) * v * t, py = f.y - Math.sin(a) * v * t + 0.5 * T.GRAVITY * t * t;
       c.beginPath(); c.arc(px, py, 1.8, 0, 6.29); c.fill();
     }
-    // meter
-    const mx = f.x - 34, my = f.y - 32, mh = 60, mw = 7;
+    const mw = 7 * k, mh = 60 * k, mx = f.x - 30 - mw, my = f.y - 32 * k;
     const win = T.BONUS_WINDOW + T.BONUS_WINDOW_STEP * save.up.window;
     c.fillStyle = 'rgba(20,18,16,.55)'; c.fillRect(mx - 1, my - 1, mw + 2, mh + 2);
     c.fillStyle = 'rgba(232,217,138,.35)'; c.fillRect(mx, my, mw, mh * win);
@@ -1032,14 +1146,12 @@ function drawFrogHud(c) {
     c.strokeStyle = 'rgba(236,230,214,.7)'; c.lineWidth = 1; c.strokeRect(mx - 0.5, my - 0.5, mw + 1, mh + 1);
     c.beginPath(); c.moveTo(mx - 3, my + mh * win); c.lineTo(mx + mw + 3, my + mh * win); c.stroke();
   }
-  // toasts
   for (const t of toasts) {
-    c.globalAlpha = 1 - t.age / t.life; c.fillStyle = t.col; c.font = `bold 13px ${DISPLAY}`; c.textAlign = 'center';
+    c.globalAlpha = 1 - t.age / t.life; c.fillStyle = t.col; c.font = `bold ${13 * k}px ${DISPLAY}`; c.textAlign = 'center';
     c.fillText(t.txt, t.x, t.y); c.globalAlpha = 1;
   }
 }
 
-function roundRect(c, x, y, w, h, r) { c.beginPath(); c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r); c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.closePath(); }
 function shadowText(c, txt, x, y, font, col, align) {
   c.font = font; c.textAlign = align || 'left'; c.textBaseline = 'alphabetic';
   c.fillStyle = 'rgba(20,18,16,.65)'; c.fillText(txt, x + 2, y + 2);
@@ -1054,17 +1166,16 @@ function drawCap(c, x, y, r) {
 
 function drawHud(c) {
   const f = frog;
-  ui.buttons = [];
   const m = Math.floor(f.maxX / T.PX_PER_M);
-  shadowText(c, `${m} m`, 20, 46, `40px ${DISPLAY}`, '#ece6d6');
-  shadowText(c, `best ${save.best} m`, 22, 68, `15px ${BODY}`, 'rgba(236,230,214,.8)');
-  drawCap(c, W - 24, 34, 9);
-  shadowText(c, `${save.caps}`, W - 40, 41, `22px ${DISPLAY}`, '#ece6d6', 'right');
-  if (memoryOnly) shadowText(c, 'progress will not be saved in this browser', W - 20, 62, `12px ${BODY}`, 'rgba(236,230,214,.6)', 'right');
+  const small = W < 560, fs = small ? 30 : 40, pad = small ? 12 : 20;
+  shadowText(c, `${m} m`, pad, pad + fs * 0.65, `${fs}px ${DISPLAY}`, '#ece6d6');
+  shadowText(c, `best ${save.best} m`, pad + 2, pad + fs * 0.65 + 20, `14px ${BODY}`, 'rgba(236,230,214,.8)');
+  drawCap(c, W - pad - 4, pad + 14, 9);
+  shadowText(c, `${save.caps}`, W - pad - 20, pad + 21, `22px ${DISPLAY}`, '#ece6d6', 'right');
+  if (memoryOnly) shadowText(c, 'progress will not be saved in this browser', W - pad, pad + 42, `12px ${BODY}`, 'rgba(236,230,214,.6)', 'right');
 
-  // next anchor beyond the right edge
   if (f.state === 'flying' || f.state === 'sliding') {
-    const right = cam.x + W / 2 / cam.z;
+    const right = cam.x + W / 2 / Z();
     let nxt = null;
     for (const a of world.anchors) if (a.x > right && (!nxt || a.x < nxt.x)) nxt = a;
     if (nxt && nxt.x - right < 700) {
@@ -1073,103 +1184,32 @@ function drawHud(c) {
       c.fillStyle = 'rgba(236,230,214,.5)'; c.beginPath(); c.moveTo(W - 8, y); c.lineTo(W - 22, y - 9); c.lineTo(W - 22, y + 9); c.fill();
     }
   }
-
-  // hints
-  if (f.state === 'ready' && !ui.overlay) {
-    if (!save.seen) {
-      const bx = W / 2 - 250, by = 90, bw = 500, bh = 214;
-      c.fillStyle = 'rgba(29,26,22,.86)'; roundRect(c, bx, by, bw, bh, 6); c.fill();
-      c.strokeStyle = 'rgba(236,230,214,.35)'; c.lineWidth = 1; c.stroke();
-      shadowText(c, 'GUTTER FROG', W / 2, by + 44, `34px ${DISPLAY}`, '#ece6d6', 'center');
-      const lines = [
-        'Hold SPACE or the mouse button to charge. Aim with the mouse.',
-        'Release to jump. Let go in the bright band for a clean launch.',
-        'In the air, click to grab a bird, wire, balloon or drone with your tongue.',
-        'You get 3 grabs. Eat flies to earn more.',
-        'Land shallow to skip along. Water skips best. Bricks do not.',
-        'R restarts. U opens upgrades between runs.',
-      ];
-      c.font = `15px ${BODY}`; c.fillStyle = 'rgba(236,230,214,.9)'; c.textAlign = 'center';
-      lines.forEach((l, i) => c.fillText(l, W / 2, by + 78 + i * 22));
-    } else {
-      shadowText(c, 'hold to charge  ·  release to jump  ·  click to grab  ·  U upgrades', W / 2, H - 22, `14px ${BODY}`, 'rgba(236,230,214,.75)', 'center');
-    }
+  if (f.state === 'ready' && save.seen && !ui.shop) {
+    const txt = mouse.touch ? 'hold to charge · drag to aim · let go to jump · tap to grab' : 'hold to charge · release to jump · click to grab · U upgrades';
+    shadowText(c, txt, W / 2, H - 16, `${small ? 12 : 14}px ${BODY}`, 'rgba(236,230,214,.75)', 'center');
   }
-
-  // end card
-  if (f.state === 'ended' && f.endT > 0.8 && !ui.overlay) {
-    const reasons = { sank: 'Sank in the canal.', splat: 'Face first into the ground.', crumpled: 'Landed hard. Momentum gone.', stopped: 'Slid to a stop.', wall: 'Met a wall.' };
-    const bx = W / 2 - 210, by = 120, bw = 420, bh = 210;
-    c.fillStyle = 'rgba(29,26,22,.88)'; roundRect(c, bx, by, bw, bh, 6); c.fill();
-    c.strokeStyle = 'rgba(236,230,214,.35)'; c.lineWidth = 1; c.stroke();
-    shadowText(c, reasons[f.endReason] || 'Run over.', W / 2, by + 38, `17px ${BODY}`, 'rgba(236,230,214,.85)', 'center');
-    shadowText(c, `${m} m`, W / 2, by + 92, `46px ${DISPLAY}`, f.newBest ? '#e8d98a' : '#ece6d6', 'center');
-    if (f.newBest) shadowText(c, 'new best', W / 2, by + 112, `14px ${BODY}`, '#e8d98a', 'center');
-    const detail = `${f.grabs} grab${f.grabs === 1 ? '' : 's'}  ·  ${f.skips} skip${f.skips === 1 ? '' : 's'}  ·  ${f.flies} ${f.flies === 1 ? 'fly' : 'flies'}`;
-    shadowText(c, detail, W / 2, by + 136, `14px ${BODY}`, 'rgba(236,230,214,.75)', 'center');
-    drawCap(c, W / 2 - 34, by + 158, 7);
-    shadowText(c, `+${f.capsEarned}`, W / 2 - 22, by + 164, `18px ${DISPLAY}`, '#ece6d6');
-    button(c, bx + 40, by + 178, 150, 26, 'AGAIN  (space)', restart);
-    button(c, bx + bw - 190, by + 178, 150, 26, 'UPGRADES  (U)', toggleUpgrades);
-  }
-
-  if (ui.overlay === 'upgrades') drawUpgrades(c);
-}
-
-function button(c, x, y, w, h, label, fn, dim) {
-  c.fillStyle = dim ? 'rgba(80,74,66,.6)' : '#d63a2a'; c.fillRect(x, y, w, h);
-  c.strokeStyle = '#1d1a16'; c.lineWidth = 2; c.strokeRect(x, y, w, h);
-  c.fillStyle = '#f6efe0'; c.font = `bold 13px ${DISPLAY}`; c.textAlign = 'center'; c.textBaseline = 'middle';
-  c.fillText(label, x + w / 2, y + h / 2 + 1); c.textBaseline = 'alphabetic';
-  ui.buttons.push({ x, y, w, h, fn });
-}
-
-function drawUpgrades(c) {
-  const bx = W / 2 - 300, by = 60, bw = 600, bh = 400;
-  c.fillStyle = 'rgba(29,26,22,.93)'; roundRect(c, bx, by, bw, bh, 6); c.fill();
-  c.strokeStyle = 'rgba(236,230,214,.35)'; c.lineWidth = 1; c.stroke();
-  shadowText(c, 'UPGRADES', bx + 28, by + 44, `30px ${DISPLAY}`, '#ece6d6');
-  drawCap(c, bx + bw - 90, by + 34, 9);
-  shadowText(c, `${save.caps}`, bx + bw - 28, by + 41, `22px ${DISPLAY}`, '#ece6d6', 'right');
-  shadowText(c, 'Bought between runs only. Nothing here changes what a button already does.', bx + 28, by + 68, `13px ${BODY}`, 'rgba(236,230,214,.7)');
-  UPGRADES.forEach((u, i) => {
-    const y = by + 96 + i * 70, lvl = save.up[u.id], maxed = lvl >= u.max, cost = maxed ? null : u.cost[lvl];
-    const flash = ui.flash && ui.flash.id === u.id && ui.flash.t > 0, bought = ui.bought && ui.bought.id === u.id && ui.bought.t > 0;
-    c.fillStyle = bought ? 'rgba(63,143,76,.25)' : flash ? 'rgba(214,58,42,.25)' : 'rgba(236,230,214,.06)';
-    c.fillRect(bx + 20, y - 8, bw - 40, 60);
-    shadowText(c, `${i + 1}.  ${u.name}`, bx + 34, y + 16, `19px ${DISPLAY}`, '#ece6d6');
-    shadowText(c, u.desc, bx + 34, y + 38, `13px ${BODY}`, 'rgba(236,230,214,.75)');
-    for (let k = 0; k < u.max; k++) {
-      c.fillStyle = k < lvl ? '#e8d98a' : 'rgba(236,230,214,.18)'; c.beginPath(); c.arc(bx + 330 + k * 16, y + 12, 5, 0, 6.29); c.fill();
-    }
-    if (maxed) shadowText(c, 'MAXED', bx + bw - 60, y + 22, `14px ${DISPLAY}`, 'rgba(236,230,214,.5)', 'center');
-    else {
-      const can = save.caps >= cost;
-      button(c, bx + bw - 150, y + 6, 110, 28, `BUY  ${cost}`, () => buyUpgrade(u), !can);
-      if (!can) shadowText(c, `need ${cost - save.caps} more`, bx + bw - 95, y + 48, `11px ${BODY}`, 'rgba(236,230,214,.5)', 'center');
-    }
-  });
-  button(c, bx + bw / 2 - 70, by + bh - 44, 140, 28, 'CLOSE  (U / Esc)', () => { ui.overlay = null; });
 }
 
 // ---------------------------------------------------------------- loop
 let last = performance.now();
 function frame(now) {
-  let dt = Math.min(0.033, (now - last) / 1000); last = now; tNow += dt;
+  const dt = Math.min(0.033, (now - last) / 1000); last = now; tNow += dt;
   const f = frog;
-  if (!ui.overlay) {
+  if (!ui.shop) {
     const sub = 3, sdt = dt / sub;
     for (let i = 0; i < sub; i++) stepFrog(sdt);
     updateAnchors(dt);
     f.stretchT = Math.max(0, f.stretchT - dt); f.squashT = Math.max(0, f.squashT - dt); f.noChargeT = Math.max(0, f.noChargeT - dt); f.lockT = Math.max(0, f.lockT - dt);
     updateFx(dt);
     updateCam(dt);
-    ensureWorld(cam.x + W / cam.z);
-    const w = toWorld(mouse.sx, mouse.sy); mouse.wx = w.x; mouse.wy = w.y;
+    ensureWorld(cam.x + W / Z());
+    if (mouse.touch && !mouse.down && (f.state === 'flying' || f.state === 'sliding')) {
+      // no hover on a phone: the resting cursor sits ahead of the frog so a plain tap takes the natural next anchor
+      mouse.wx = f.x + f.facing * 150; mouse.wy = f.y - 60;
+    } else { const w = toWorld(mouse.sx, mouse.sy); mouse.wx = w.x; mouse.wy = w.y; }
     f.pick = (f.state === 'flying' || f.state === 'sliding') ? pickTarget() : null;
-  } else {
-    if (ui.flash) ui.flash.t -= dt; if (ui.bought) ui.bought.t -= dt;
   }
+  syncPanels();
   draw();
   requestAnimationFrame(frame);
 }
@@ -1179,7 +1219,7 @@ newRun();
 requestAnimationFrame(frame);
 
 // debug handle for tuning from the console (not used by the game itself)
-window.GF = { T, get frog() { return frog; }, get world() { return world; }, get cam() { return cam; }, save, restart };
+window.GF = { T, get frog() { return frog; }, get world() { return world; }, get cam() { return cam; }, z: () => Z(), save, restart };
 })();
 </script>
 </body>
